@@ -1,0 +1,253 @@
+---
+- name: "Installing and create Patroni/etcd cluster"
+  hosts: red
+  become: true
+  become_user: user
+  gather_facts: true
+  vars:
+    path_to_templates: /root/patroni_ansible/templates # Needs to be set absalute path to templates
+ 
+  tasks:
+    - name: "Checking distributive"
+      ansible.builtin.command: cat /etc/os-release
+      register: os_release
+      changed_when: false
+
+    - name: "Getting user name"
+      ansible.builtin.command: whoami
+      register: user_name
+      changed_when: false
+
+    - name: "Updating repositories if distributive is rhel like"
+      ansible.builtin.dnf:
+        state: latest
+        update_cache: true
+      when: os_release.stdout_lines[4] == 'ID_LIKE="rhel centos fedora"'
+
+    - name: "Updating repositories if distributive is Debian like"
+      ansible.builtin.apt:
+        state: latest
+        update_cache: true
+      when: os_release.stdout_lines[4] == 'ID_LIKE=debian'
+
+    - name: "Getting file insformation"
+      ansible.builtin.stat:
+        path: /tmp/etcd-v3.5.21-linux-amd64.tar.gz
+      register: file_info
+
+    - name: "Getting directory insformation"
+      ansible.builtin.stat:
+        path: "{{ item }}"
+      loop:
+        - /etc/etcd
+        - /var/lib/etcd
+      register: directory_info
+    
+    - name: "Printing directory_info"
+      ansible.builtin.debug:
+        msg: "{{ directory_info.results[0].stat.exists }}"
+
+    - name: "Creating ETCD.DATA DIRECTORY"
+      become: true
+      become_user: root
+      ansible.builtin.file:
+        path: /var/lib/etcd
+        state: directory
+        owner: etcd
+        group: etcd
+        mode: '0755'
+      when: directory_info.results[0].stat.exists
+
+
+    - name: "Printing user info"
+      ansible.builtin.debug:
+        msg: "Current user is {{ ansible_user }}"
+
+    - name: "Downloading ETCD binary to the directory /tmp"
+      ansible.builtin.get_url:
+        url: https://github.com/etcd-io/etcd/releases/download/v3.5.21/etcd-v3.5.21-linux-amd64.tar.gz
+        dest: /tmp/
+        mode: "0750"
+      when: not file_info.stat.exists
+
+
+    - name: "Extracting ETCD files"
+      become: true
+      become_user: root
+      ansible.builtin.unarchive:
+        src: /tmp/etcd-v3.5.21-linux-amd64.tar.gz
+        dest: "/home/{{ user_name.stdout }}/"
+        remote_src: true
+
+    - name: "Copy binary to /usr/local/bin"
+      become: true
+      become_user: root
+      ansible.builtin.copy:
+        src: /home/{{ ansible_user }}/etcd-v3.5.21-linux-amd64/{{ item }}
+        dest: /usr/local/bin
+        owner: root
+        group: root
+        mode: "0755"
+        remote_src: true
+      loop:
+        - etcd
+        - etcdctl
+
+    - name: "Creating directory for ETCD"
+      become: true
+      become_user: root
+      ansible.builtin.file:
+        path: "{{ item }}"
+        owner: etcd
+        group: etcd
+        mode: "0755"
+      when: not directory_info.results[0].stat.exists and directory_info.results[1].stat.exists
+      loop:
+        - /etc/etcd
+        - /var/lib/etcd
+      
+    - name: "Generating ETCD.YAML in directory /etc/etcd"
+      become: true
+      become_user: root
+      ansible.builtin.template:
+        src: '{{ path_to_templates }}/etcd.j2'
+        dest: /etc/etcd/etcd.yaml
+        owner: etcd
+        group: etcd
+        mode: "0644"
+      vars:
+        peer_urls_port: '2380'
+        client_urls_port: '2379'
+        http_protocol: 'http'
+  
+
+        
+    - name: "Generating systemd file for ETCD.SERVICE"
+      become: true
+      become_user: root
+      ansible.builtin.template:
+        src: '{{ path_to_templates }}/systemd_etcd.j2'
+        dest: /usr/lib/systemd/system/etcd.service
+        mode: "0644"
+        owner: root
+        group: root
+    
+    - name: "Daemon reload"
+      become: true
+      become_user: root
+      ansible.builtin.systemd_service:
+        daemon_reload: true
+  
+    - name: "Starting etcd cluster"
+      become: true
+      become_user: root
+      ansible.builtin.systemd_service:
+        name: etcd.service
+        state: restarted
+
+- name: "Patroni management"
+  become: true
+  become_user: root
+  hosts: patroni_hosts
+  vars:
+    path_to_templates: /root/patroni_ansible/templates # Needs to be set absalute path to templates
+  tasks:
+    - name: "Checking distributive"
+      ansible.builtin.command: cat /etc/os-release
+      register: os_release
+      changed_when: false
+      
+    - name: "Installing patroni on redhel like distributives"
+      become: true
+      become_user: root
+      ansible.builtin.dnf:
+        name:
+          - patroni
+          - postgresql-server
+        state: latest
+      when: os_release.stdout_lines[4] == 'ID_LIKE="rhel centos fedora"'
+
+    - name: "Installing patroni on Debian like distributives"
+      ansible.builtin.apt:
+        name:
+          - patroni
+          - postgresql-server
+        state: latest
+      when: os_release.stdout_lines[4] == 'ID_LIKE=debian'
+
+    - name: "Getting pg_ctl directory"
+      become: true
+      become_user: root
+      ansible.builtin.command: "find / -name pg_ctl -printf '%h\\n'"
+      register: pg_ctl
+      changed_when: false
+      ignore_errors: true
+      failed_when: pg_ctl.rc != 1
+
+    - name: "Printing pg_ctl"
+      ansible.builtin.debug:
+        msg: '{{ pg_ctl.stdout_lines }}'
+
+
+    - name: "Creating log direcroty for patroni"
+      become: true
+      become_user: root
+      ansible.builtin.file:
+        path: /var/log/patroni
+        state: directory
+        owner: postgres
+        group: postgres
+        mode: "0700"
+
+    - name: "Create database directory and giving privileges"
+      become: true
+      become_user: root
+      ansible.builtin.file:
+        path: /data/pg_data
+        state: directory
+        owner: postgres
+        group: postgres
+        mode: '0700'
+
+    - name: "Checking for patroni jinja file"
+      ansible.builtin.template:
+        src: '{{ path_to_templates }}/patroni_yaml.j2'
+        dest: /etc/patroni/patroni.yml
+        mode: "0755"
+      vars:
+        pg_data_dir: /data/pg_data
+        pg_bin_files: '{{ pg_ctl.stdout_lines[0] }}'
+
+    - name: "Patroni service setting"
+      become: true
+      become_user: root
+      ansible.builtin.template:
+        src: '{{ path_to_templates }}/patroni_service.j2'
+        dest: '/etc/systemd/system/patroni.service'
+        mode: '0644'
+        owner: root
+        group: root
+      notify: Daemon reload
+
+    - name: "Starting patroni service"
+      ansible.builtin.systemd_service:
+        name: patroni.service
+        state: restarted
+        enabled: true
+  
+  handlers:
+    - name: "Daemon reload"
+      become: true
+      become_user: root
+      ansible.builtin.systemd_service:
+        daemon_reload: true
+        
+        
+        
+
+
+        
+        
+
+      
+  

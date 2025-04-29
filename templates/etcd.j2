@@ -1,0 +1,11 @@
+name: {{ ansible_hostname }}
+data-dir: /var/lib/etcd/{{ ansible_hostname }}
+listen-peer-urls: {{ http_protocol }}://{{  inventory_hostname }}:{{ peer_urls_port }}
+listen-client-urls: {{ http_protocol }}://0.0.0.0:{{ client_urls_port }}
+initial-advertise-peer-urls: {{ http_protocol }}://{{ hostvars[inventory_hostname]['ansible_facts']['all_ipv4_addresses'] | default(['127.0.0.1']) | first }}:{{ peer_urls_port }}
+advertise-client-urls: {{ http_protocol }}://0.0.0.0:{{ client_urls_port }}
+initial-cluster: {%for host in groups['etcd'] -%} {{host}}={{http_protocol}}://{{hostvars[host]['ansible_host']}}:{{ peer_urls_port }}{% if not loop.last %},{% endif %}{%- endfor%}
+
+initial-cluster-state: new
+initial-cluster-token: P@ssw0rdTOKENWOULDBEP@ssw0rd
+enable-v2: true

@@ -1,0 +1,10 @@
+.ansible
+.vscode
+bin
+include
+lib
+lib64
+.ansible-lint
+ansible.cfg
+inventory.ini
+*.cfg
