@@ -30,22 +30,18 @@
         update_cache: true
       when: os_release.stdout_lines[4] == 'ID_LIKE=debian'
 
-    - name: "Getting file insformation"
+    - name: "Getting file information"
       ansible.builtin.stat:
         path: /tmp/etcd-v3.5.21-linux-amd64.tar.gz
       register: file_info
 
-    - name: "Getting directory insformation"
+    - name: "Getting directory information"
       ansible.builtin.stat:
         path: "{{ item }}"
       loop:
         - /etc/etcd
         - /var/lib/etcd
       register: directory_info
-    
-    - name: "Printing directory_info"
-      ansible.builtin.debug:
-        msg: "{{ directory_info.results[0].stat.exists }}"
 
     - name: "Creating ETCD.DATA DIRECTORY"
       become: true
