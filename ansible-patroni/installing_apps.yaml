@@ -1,6 +1,6 @@
 ---
 - name: "Installing and creating Patroni/etcd cluster"
-  hosts: red
+  hosts: etcd
   become: true
   become_user: user
   gather_facts: true
@@ -131,13 +131,13 @@
     - name: "Daemon reload"
       become: true
       become_user: root
-      ansible.builtin.systemd_service:
+      ansible.builtin.systemd:
         daemon_reload: true
   
     - name: "Starting etcd cluster"
       become: true
       become_user: root
-      ansible.builtin.systemd_service:
+      ansible.builtin.systemd:
         name: etcd.service
         state: restarted
 
@@ -226,7 +226,7 @@
       notify: Daemon reload
 
     - name: "Starting patroni service"
-      ansible.builtin.systemd_service:
+      ansible.builtin.systemd:
         name: patroni.service
         state: restarted
         enabled: true
@@ -235,7 +235,7 @@
     - name: "Daemon reload"
       become: true
       become_user: root
-      ansible.builtin.systemd_service:
+      ansible.builtin.systemd:
         daemon_reload: true
         
         
