@@ -57,12 +57,6 @@
         owner: etcd
         group: etcd
         mode: '0755'
-      when: not directory_info.results[1].stat.exists
-
-
-    #- name: "Printing user info"
-    #  ansible.builtin.debug:
-    #    msg: "Current user is {{ ansible_user }}"
 
     - name: "Downloading Etcd Binary To The Directory /tmp"
       ansible.builtin.get_url:
@@ -99,7 +93,6 @@
         group: etcd
         mode: "0755"
         state: directory
-      when: not directory_info.results[0].stat.exists 
 
     - name: "Generating Etcd.yaml In Directory /etc/etcd"
       tags:
@@ -114,8 +107,6 @@
         peer_urls_port: '2380'
         client_urls_port: '2379'
         http_protocol: 'http'
-  
-
         
     - name: "Generating Systemd File For Etcd.service"
       ansible.builtin.template:
