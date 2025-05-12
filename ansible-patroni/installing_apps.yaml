@@ -1,8 +1,6 @@
 ---
 - name: "Installing and creating Patroni/etcd cluster"
   hosts: etcd
-  become: true
-  become_user: root
   gather_facts: true
   vars:
     path_to_templates: /root/patroni_etcd_cluster/templates # Needs to be set absalute path to templates
@@ -53,8 +51,6 @@
         state: present
 
     - name: "Creating ETCD.DATA DIRECTORY"
-      become: true
-      become_user: root
       ansible.builtin.file:
         path: /var/lib/etcd
         state: directory
@@ -77,16 +73,12 @@
 
 
     - name: "Extracting ETCD files"
-      become: true
-      become_user: root
       ansible.builtin.unarchive:
         src: /tmp/etcd-v3.5.21-linux-amd64.tar.gz
         dest: "/tmp/"
         remote_src: true
 
     - name: "Copy binary to /usr/local/bin"
-      become: true
-      become_user: root
       ansible.builtin.copy:
         src: /tmp/etcd-v3.5.21-linux-amd64/{{ item }}
         dest: /usr/local/bin
@@ -101,8 +93,6 @@
     - name: "Creating directory for ETCD"
       tags:
         - create_etcd_dir
-      become: true
-      become_user: root
       ansible.builtin.file:
         path: /etc/etcd
         owner: etcd
@@ -114,8 +104,6 @@
     - name: "Generating ETCD.YAML in directory /etc/etcd"
       tags:
         - gen_etcd_yml
-      become: true
-      become_user: root
       ansible.builtin.template:
         src: '{{ path_to_templates }}/etcd.j2'
         dest: /etc/etcd/etcd.yaml
@@ -130,8 +118,6 @@
 
         
     - name: "Generating systemd file for ETCD.SERVICE"
-      become: true
-      become_user: root
       ansible.builtin.template:
         src: '{{ path_to_templates }}/systemd_etcd.j2'
         dest: /usr/lib/systemd/system/etcd.service
@@ -140,14 +126,10 @@
         group: root
     
     - name: "Daemon reload"
-      become: true
-      become_user: root
       ansible.builtin.systemd:
         daemon_reload: true
   
     - name: "Starting etcd cluster"
-      become: true
-      become_user: root
       ansible.builtin.systemd:
         name: etcd.service
         state: restarted
@@ -155,8 +137,6 @@
 - name: "Patroni management"
   tags:
     - patroni_setup
-  become: true
-  become_user: root
   hosts: patroni_hosts
   vars:
     path_to_templates: /root/patroni_etcd_cluster/templates # Needs to be set absalute path to templates
@@ -167,8 +147,6 @@
       changed_when: false
       
     - name: "Installing patroni on redhel like distributives"
-      become: true
-      become_user: root
       ansible.builtin.dnf:
         name:
           - patroni
@@ -188,8 +166,6 @@
     - name: "Getting pg_ctl directory"
       tags:
         - patroni_template
-      become: true
-      become_user: root
       ansible.builtin.command: "find / -name pg_ctl -printf '%h\\n'"
       register: pg_ctl
       changed_when: false
@@ -202,8 +178,6 @@
 
 
     - name: "Creating log direcroty for patroni"
-      become: true
-      become_user: root
       ansible.builtin.file:
         path: /var/log/patroni
         state: directory
@@ -212,8 +186,6 @@
         mode: "0700"
 
     - name: "Create database directory and giving privileges"
-      become: true
-      become_user: root
       ansible.builtin.file:
         path: /data/pg_data
         state: directory
@@ -222,8 +194,6 @@
         mode: '0700'
 
     - name: "Creating pgsql Directory"
-      become: true
-      become_user: root
       ansible.builtin.file:
         path: /var/lib/pgsql
         state: directory
@@ -243,8 +213,6 @@
         pg_bin_files: '{{ pg_ctl.stdout_lines[0] }}'
 
     - name: "Patroni service setting"
-      become: true
-      become_user: root
       ansible.builtin.template:
         src: '{{ path_to_templates }}/patroni_service.j2'
         dest: '/etc/systemd/system/patroni.service'
@@ -261,8 +229,6 @@
   
   handlers:
     - name: "Daemon reload"
-      become: true
-      become_user: root
       ansible.builtin.systemd:
         daemon_reload: true
         
