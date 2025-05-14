@@ -30,10 +30,15 @@ bootstrap:
     - auth-host: scram-sha-256
 
   pg_hba:
-    - local all all peer
-  {% for host in groups['patroni_hosts'] %}
-  - host replication repl {{ hostvars[host]['ansible_host'] }}/24 scram-sha-256
-  {% endfor %}
+    - local all all scram-sha-256
+    - host all all 127.0.0.1/32 scram-sha-256
+    {% for host in groups['patroni_hosts'] -%}
+    {% if hostvars[host]['ansible_host'] ==  ansible_facts['default_ipv4']['address'] -%}
+    - host replication repl {{ hostvars[host]['ansible_host'] }}/32 reject
+    {% else -%}
+    - host replication repl {{ hostvars[host]['ansible_host'] }}/32 scram-sha-256
+    {% endif %}
+    {%- endfor %}
 
   users:
     admin:
