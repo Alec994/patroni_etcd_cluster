@@ -6,27 +6,24 @@
     path_to_templates: /root/patroni_etcd_cluster/templates # Needs to be set absalute path to templates
  
   tasks:
-    - name: "Checking Distro Flavour"
-      ansible.builtin.command: cat /etc/os-release
-      register: os_release
-      changed_when: false
-
-    - name: "Getting User Name"
-      ansible.builtin.command: whoami
-      register: user_name
-      changed_when: false
+    - name: "Debug Print OS Family"
+      tags:
+        - os_family_debug
+      ansible.builtin.debug:
+        msg: OS Family is {{ ansible_facts['os_family'] }}
 
     - name: "Updating Repositories If Distro Is RHEL-like"
       ansible.builtin.dnf:
         state: latest
         update_cache: true
-      when: os_release.stdout_lines[4] == 'ID_LIKE="rhel centos fedora"'
+      when: ansible_facts['os_family'] == "RedHat"
 
     - name: "Updating Repositories If Distro Is Debian-like"
       ansible.builtin.apt:
         state: latest
         update_cache: true
-      when: os_release.stdout_lines[4] == 'ID_LIKE=debian'
+      when: ansible_facts['os_family'] == "Debian" or
+            ansible_facts['os_family'] == "Astra Linux"
 
     - name: "Getting File Info"
       ansible.builtin.stat:
@@ -132,11 +129,6 @@
   vars:
     path_to_templates: /root/patroni_etcd_cluster/templates # Needs to be set absalute path to templates
   tasks:
-    - name: "Checking Distributive"
-      ansible.builtin.command: cat /etc/os-release
-      register: os_release
-      changed_when: false
-      
     - name: "Installing Patroni On RHEL-like Distro"
       ansible.builtin.dnf:
         name:
@@ -144,16 +136,24 @@
           - python3-etcd
           - postgresql-server
         state: latest
-      when: os_release.stdout_lines[4] == 'ID_LIKE="rhel centos fedora"'
+      when: ansible_facts['os_family'] == "RedHat"
 
     - name: "Installing Patroni On Debian-like Distro"
       ansible.builtin.apt:
         name:
           - patroni
-          - postgresql-server
+          - python3-etcd
+          - postgresql
         state: latest
-      when: os_release.stdout_lines[4] == 'ID_LIKE=debian'
+      when: ansible_facts['os_family'] == "Debian" or
+            ansible_facts['os_family'] == "Astra Linux"
 
+    - name: "Disabling Default PostgreSQL Service"
+      ansible.builtin.systemd:
+        name: postgresql
+        enabled: false
+        state: stopped
+            
     - name: "Getting pg_ctl Directory"
       tags:
         - patroni_template
@@ -210,25 +210,14 @@
         mode: '0644'
         owner: root
         group: root
-      notify: Daemon Reload
+ 
+    - name: "Daemon Reload"
+      ansible.builtin.systemd:
+        daemon_reload: true
 
     - name: "Starting Patroni Service"
       ansible.builtin.systemd:
         name: patroni.service
         state: restarted
         enabled: true
-  
-  handlers:
-    - name: "Daemon Reload"
-      ansible.builtin.systemd:
-        daemon_reload: true
-        
-        
-        
 
-
-        
-        
-
-      
-  
