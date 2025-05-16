@@ -1,4 +1,101 @@
 ---
+- name: "Generating SSL Certificates For Remote Hosts"
+  tags:
+    - certgen
+  gather_facts: false
+  hosts: localhost
+  connection: local
+  vars:
+    ssl_dir: "{{ playbook_dir }}/ssl"
+
+  tasks:
+    - name: "Create SSL Directory Structure"
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: directory
+      loop:
+        - "{{ ssl_dir }}"
+        - "{{ ssl_dir }}/etcd"
+        - "{{ ssl_dir }}/patroni"
+
+    - name: "Generate CA Private Key"
+      community.crypto.openssl_privatekey:
+        path: "{{ ssl_dir }}/HAClusterCA.pem"
+
+    - name: "Generate CA Certificate Signing Request"
+      community.crypto.openssl_csr:
+        path: "{{ ssl_dir }}/HAClusterCA.csr"
+        privatekey_path: "{{ ssl_dir }}/HAClusterCA.pem"
+        country_name: RU
+        state_or_province_name: Republic of Tatarstan
+        locality_name: Kazan
+        organization_name: Innostage Group
+        organizational_unit_name: IT Department
+        common_name: stand.hacluster.ru
+
+    - name: "Generate CA X509 Certificate"
+      community.crypto.x509_certificate:
+        path: "{{ ssl_dir }}/HAClusterCA.crt"
+        privatekey_path: "{{ ssl_dir }}/HAClusterCA.pem"
+        csr_path: "{{ ssl_dir }}/HAClusterCA.csr"
+        provider: selfsigned
+ 
+    - name: "Generate Etcd Hosts Private Keys"
+      community.crypto.openssl_privatekey:
+        path: "{{ ssl_dir }}/etcd/{{ item }}.pem"
+      loop: "{{ groups['etcd'] }}"
+
+    - name: "Generate Etcd Hosts Certificate Signing Requests"
+      community.crypto.openssl_csr:
+        path: "{{ ssl_dir }}/etcd/{{ item }}.csr"
+        privatekey_path: "{{ ssl_dir }}/etcd/{{ item }}.pem"
+        country_name: RU
+        state_or_province_name: Republic of Tatarstan
+        locality_name: Kazan
+        organization_name: Innostage Group
+        organizational_unit_name: IT Department
+        common_name: "{{ item }}"
+        subject_alt_name: "DNS:{{ item }},IP:{{ hostvars[item]['ansible_host'] }}"
+      loop: "{{ groups['etcd'] }}"
+ 
+    - name: "Generate Etcd Hosts X509 Certificates"
+      community.crypto.x509_certificate:
+        path: "{{ ssl_dir }}/etcd/{{ item }}.crt"
+        privatekey_path: "{{ ssl_dir }}/etcd/{{ item }}.pem"
+        csr_path: "{{ ssl_dir }}/etcd/{{ item }}.csr"
+        ownca_path: "{{ ssl_dir }}/HAClusterCA.crt"
+        ownca_privatekey_path: "{{ ssl_dir }}/HAClusterCA.pem"
+        provider: ownca
+      loop: "{{ groups['etcd'] }}"
+
+    - name: "Generate Patroni Hosts Private Keys"
+      community.crypto.openssl_privatekey:
+        path: "{{ ssl_dir }}/patroni/{{ item }}.pem"
+      loop: "{{ groups['patroni'] }}"
+
+    - name: "Generate Patroni Hosts Certificate Signing Requests"
+      community.crypto.openssl_csr:
+        path: "{{ ssl_dir }}/patroni/{{ item }}.csr"
+        privatekey_path: "{{ ssl_dir }}/patroni/{{ item }}.pem"
+        country_name: RU
+        state_or_province_name: Republic of Tatarstan
+        locality_name: Kazan
+        organization_name: Innostage Group
+        organizational_unit_name: IT Department
+        common_name: "{{ item }}"
+        subject_alt_name: "DNS:{{ item }},IP:{{ hostvars[item]['ansible_host'] }}"
+      loop: "{{ groups['patroni'] }}"
+ 
+    - name: "Generate Patroni Hosts X509 Certificates"
+      community.crypto.x509_certificate:
+        path: "{{ ssl_dir }}/patroni/{{ item }}.crt"
+        privatekey_path: "{{ ssl_dir }}/patroni/{{ item }}.pem"
+        csr_path: "{{ ssl_dir }}/patroni/{{ item }}.csr"
+        ownca_path: "{{ ssl_dir }}/HAClusterCA.crt"
+        ownca_privatekey_path: "{{ ssl_dir }}/HAClusterCA.pem"
+        provider: ownca
+      loop: "{{ groups['patroni'] }}"
+
 - name: "Installing And Creating Etcd Cluster"
   hosts: etcd
   gather_facts: true
