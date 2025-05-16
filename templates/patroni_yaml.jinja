@@ -32,7 +32,7 @@ bootstrap:
   pg_hba:
     - local all all scram-sha-256
     - host all all 127.0.0.1/32 scram-sha-256
-    {% for host in groups['patroni_hosts'] -%}
+    {% for host in groups['patroni'] -%}
     {% if hostvars[host]['ansible_host'] ==  ansible_facts['default_ipv4']['address'] -%}
     - host replication repl {{ hostvars[host]['ansible_host'] }}/32 reject
     {% else -%}

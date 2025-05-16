@@ -125,7 +125,7 @@
 - name: "Patroni Management"
   tags:
     - patroni_setup
-  hosts: patroni_hosts
+  hosts: patroni
   vars:
     path_to_templates: /root/patroni_etcd_cluster/templates # Needs to be set absalute path to templates
   tasks:
