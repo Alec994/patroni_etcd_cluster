@@ -1,0 +1,21 @@
+# Kept separate because recursive referencing is not supported
+ssl_root_dir: "{{ playbook_dir }}/ssl"
+ssl_ca_base_filename: "HAClusterCA"
+
+ssl:
+  root_dir: "{{ ssl_root_dir }}"
+  etcd_dir: "{{ ssl_root_dir }}/etcd"
+  patroni_dir: "{{ ssl_root_dir }}/patroni"
+
+  ca:
+    privatekey_path: "{{ ssl_root_dir }}/{{ ssl_ca_base_filename }}.pem"
+    csr_path: "{{ ssl_root_dir }}/{{ ssl_ca_base_filename }}.csr"
+    cert_path: "{{ ssl_root_dir }}/{{ ssl_ca_base_filename }}.crt"
+    common_name: stand.hacluster.ru
+
+  subject:
+    country_name: RU
+    state_or_province_name: Republic of Tatarstan
+    locality_name: Kazan
+    organization_name: Innostage Group
+    organizational_unit_name: IT Department
