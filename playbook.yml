@@ -6,7 +6,8 @@
   hosts: localhost
   connection: local
   vars_files:
-    - "{{ playbook_dir }}/ssl_config.yml"
+    - "{{ playbook_dir }}/configs/global.yml"
+    - "{{ playbook_dir }}/configs/ssl.yml"
 
   tasks:
     - name: "Create SSL Directory Structure"
