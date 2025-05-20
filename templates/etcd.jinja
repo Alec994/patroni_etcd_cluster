@@ -16,10 +16,10 @@ initial-cluster-token: P@ssw0rdTOKENWOULDBEP@ssw0rd
 enable-v2: true
 
 {% if global.enable_ssl -%}
-peer-transport-security:
+client-transport-security:
   cert-file: /etc/etcd/ssl/{{ ansible_hostname }}.crt
   key-file: /etc/etcd/ssl/{{ ansible_hostname }}.pem
-  trusted-ca-file: {{ ssl.ca.cert_path }}
+  trusted-ca-file: /etc/etcd/ssl/{{ ssl_ca_base_filename }}.crt
 
 peer-transport-security:
   cert-file: /etc/etcd/ssl/{{ ansible_hostname }}.crt

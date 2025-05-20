@@ -32,6 +32,13 @@
         organization_name: "{{ ssl.subject.organization_name }}"
         organizational_unit_name: "{{ ssl.subject.organizational_unit_name }}"
         common_name: "{{ ssl.ca.common_name }}"
+        basic_constraints:
+          - CA:TRUE
+          - pathlen:1
+        basic_constraints_critical: true
+        key_usage:
+          - keyCertSign
+          - digitalSignature
 
     - name: "Generate CA X509 Certificate"
       community.crypto.x509_certificate:
@@ -55,7 +62,15 @@
         organization_name: "{{ ssl.subject.organization_name }}"
         organizational_unit_name: "{{ ssl.subject.organizational_unit_name }}"
         common_name: "{{ item }}"
-        subject_alt_name: "DNS:{{ item }},IP:{{ hostvars[item]['ansible_host'] }}"
+        key_usage:
+          - digitalSignature
+        extended_key_usage:
+          - serverAuth
+          - clientAuth
+        subject_alt_name:
+          - DNS:{{ item }}
+          - IP:{{ hostvars[item]['ansible_host'] }}
+          - IP:127.0.0.1
       loop: "{{ groups['etcd'] }}"
  
     - name: "Generate Etcd Hosts X509 Certificates"
@@ -83,7 +98,15 @@
         organization_name: "{{ ssl.subject.organization_name }}"
         organizational_unit_name: "{{ ssl.subject.organizational_unit_name }}"
         common_name: "{{ item }}"
-        subject_alt_name: "DNS:{{ item }},IP:{{ hostvars[item]['ansible_host'] }}"
+        key_usage:
+          - digitalSignature
+        extended_key_usage:
+          - serverAuth
+          - clientAuth
+        subject_alt_name:
+          - DNS:{{ item }}
+          - IP:{{ hostvars[item]['ansible_host'] }}
+          - IP:127.0.0.1
       loop: "{{ groups['patroni'] }}"
  
     - name: "Generate Patroni Hosts X509 Certificates"
@@ -97,6 +120,8 @@
       loop: "{{ groups['patroni'] }}"
 
 - name: "Installing And Creating Etcd Cluster"
+  tags:
+    - etcd_setup_play
   hosts: etcd
   gather_facts: true
   vars_files:
@@ -178,7 +203,7 @@
         - etcd
         - etcdctl
 
-    - name: "Creating Directory For Etcd"
+    - name: "Creating Config Dir for Etcd"
       tags:
         - create_etcd_dir
       ansible.builtin.file:
@@ -200,8 +225,31 @@
       vars:
         peer_urls_port: '2380'
         client_urls_port: '2379'
-        http_protocol: 'http'
-        
+ 
+    - name: "Creating SSL Dir for Etcd"
+      tags:
+        - create_etcd_dir
+      ansible.builtin.file:
+        path: /etc/etcd/ssl
+        owner: etcd
+        group: etcd
+        mode: "0740"
+        state: directory
+      when: global.enable_ssl
+
+    - name: "Copy SSL Certs to Hosts Etcd"
+      ansible.builtin.copy:
+        src: "{{ item }}"
+        dest: /etc/etcd/ssl
+        owner: etcd
+        group: etcd
+        mode: "0600"
+      loop:
+        - "{{ ssl.etcd_dir }}/{{ ansible_hostname }}.crt"
+        - "{{ ssl.etcd_dir }}/{{ ansible_hostname }}.pem"
+        - "{{ ssl.ca.cert_path }}"
+      when: global.enable_ssl
+
     - name: "Generating Systemd File For Etcd.service"
       ansible.builtin.template:
         src: '{{ global.templates_dir }}/systemd_etcd.jinja'
@@ -209,11 +257,11 @@
         mode: "0644"
         owner: root
         group: root
-    
+
     - name: "Daemon Reload"
       ansible.builtin.systemd:
         daemon_reload: true
-  
+
     - name: "Starting Etcd Cluster"
       ansible.builtin.systemd:
         name: etcd.service
