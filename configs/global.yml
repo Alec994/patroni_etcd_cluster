@@ -1,3 +1,0 @@
-global:
-  enable_ssl: true
-  templates_dir: "{{ playbook_dir }}/templates"

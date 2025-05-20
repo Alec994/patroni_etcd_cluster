@@ -1,3 +1,7 @@
+global:
+  enable_ssl: true
+  templates_dir: "{{ playbook_dir }}/templates"
+
 # Kept separate because recursive referencing is not supported
 ssl_root_dir: "{{ playbook_dir }}/ssl"
 ssl_ca_base_filename: "HAClusterCA"
@@ -19,3 +23,4 @@ ssl:
     locality_name: Kazan
     organization_name: Innostage Group
     organizational_unit_name: IT Department
+

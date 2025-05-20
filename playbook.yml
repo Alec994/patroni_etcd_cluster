@@ -6,8 +6,7 @@
   hosts: localhost
   connection: local
   vars_files:
-    - "{{ playbook_dir }}/configs/global.yml"
-    - "{{ playbook_dir }}/configs/ssl.yml"
+    - "{{ playbook_dir }}/playconf.yml"
 
   tasks:
     - name: "Create SSL Directory Structure"
@@ -101,8 +100,7 @@
   hosts: etcd
   gather_facts: true
   vars_files:
-    - "{{ playbook_dir }}/configs/global.yml"
-    - "{{ playbook_dir }}/configs/ssl.yml"
+    - "{{ playbook_dir }}/playconf.yml"
 
   tasks:
     - name: "Debug Print OS Family"
@@ -226,8 +224,7 @@
     - patroni_setup
   hosts: patroni
   vars_files:
-    - "{{ playbook_dir }}/configs/global.yml"
-    - "{{ playbook_dir }}/configs/ssl.yml"
+    - "{{ playbook_dir }}/playconf.yml"
 
   tasks:
     - name: "Installing Patroni On RHEL-like Distro"
