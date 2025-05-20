@@ -1,0 +1,89 @@
+scope: cluster_db
+name: {{ ansible_hostname }}
+
+restapi:
+  listen: {{ ansible_host }}:8008
+  connect_address: {{ ansible_host }}:8008
+
+etcd:
+  hosts:
+  {% for host in groups['etcd'] %}
+  - {{ host }}:2379
+  {% endfor %}
+
+bootstrap:
+  dcs:
+    ttl: 30
+    loop_wait: 10
+    retry_timeout: 10
+    maximum_lag_on_failover: 0
+    synchronous_mode: true
+    synchronous_mode_strict: false
+    postgresql:
+      use_pg_rewind: true
+      use_slots: true
+
+  initdb:
+    - encoding: UTF8
+    - data-checksums
+    - auth: peer
+    - auth-host: scram-sha-256
+
+  pg_hba:
+    - local all all scram-sha-256
+    - host all all 127.0.0.1/32 scram-sha-256
+    {% for host in groups['patroni'] -%}
+    {% if hostvars[host]['ansible_host'] ==  ansible_facts['default_ipv4']['address'] -%}
+    - host replication repl {{ hostvars[host]['ansible_host'] }}/32 reject
+    {% else -%}
+    - host replication repl {{ hostvars[host]['ansible_host'] }}/32 scram-sha-256
+    {% endif %}
+    {%- endfor %}
+
+  users:
+    admin:
+      password: P@ssw0rd
+      options:
+        - createrole
+        - createdb
+    repl:
+      password: P@ssw0rd
+      options:
+        - replication
+
+postgresql:
+  listen: 0.0.0.0:5432
+  connect_address: {{ ansible_host }}:5432
+  data_dir: {{ pg_data_dir }}
+  bin_dir: {{ pg_bin_files }}
+  config_dir: {{ pg_data_dir }}
+  pgpass: /var/lib/pgsql/.pgpass
+  authentication:
+    replication:
+      username: repl
+      password: P@ssw0rd
+    superuser:
+      username: postgres
+      password: postgres
+    rewind:
+      username: rewind_user
+      password: P@ssw0rd
+
+log:
+  level: ERROR
+  format: '%(asctime)s %(levelname)s: %(message)s'
+  dateformat: ''
+  max_queue_size: 1000
+  dir: /var/log/patroni
+  file_num: 4
+  file_size: 25000000
+  loggers:
+    postgres.postmaster: ERROR
+    urllib3: DEBUG
+
+tags:
+  failover: false
+  noloadbalance: false
+  clonefrom: false
+  nosync: false
+

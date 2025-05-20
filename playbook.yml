@@ -1,0 +1,369 @@
+---
+- name: "Generating SSL Certificates For Remote Hosts"
+  tags:
+    - certgen
+  gather_facts: false
+  hosts: localhost
+  connection: local
+  vars_files:
+    - "{{ playbook_dir }}/playconf.yml"
+
+  tasks:
+    - name: "Create SSL Directory Structure"
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: directory
+      loop:
+        - "{{ ssl.root_dir }}"
+        - "{{ ssl.etcd_dir }}"
+        - "{{ ssl.patroni_dir }}"
+
+    - name: "Generate CA Private Key"
+      community.crypto.openssl_privatekey:
+        path: "{{ ssl.ca.privatekey_path }}"
+
+    - name: "Generate CA Certificate Signing Request"
+      community.crypto.openssl_csr:
+        path: "{{ ssl.ca.csr_path }}"
+        privatekey_path: "{{ ssl.ca.privatekey_path }}"
+        country_name: "{{ ssl.subject.country_name }}"
+        state_or_province_name: "{{ ssl.subject.state_or_province_name }}"
+        locality_name: "{{ ssl.subject.locality_name }}"
+        organization_name: "{{ ssl.subject.organization_name }}"
+        organizational_unit_name: "{{ ssl.subject.organizational_unit_name }}"
+        common_name: "{{ ssl.ca.common_name }}"
+        basic_constraints:
+          - CA:TRUE
+          - pathlen:1
+        basic_constraints_critical: true
+        key_usage:
+          - keyCertSign
+          - digitalSignature
+
+    - name: "Generate CA X509 Certificate"
+      community.crypto.x509_certificate:
+        path: "{{ ssl.ca.cert_path }}"
+        privatekey_path: "{{ ssl.ca.privatekey_path }}"
+        csr_path: "{{ ssl.ca.csr_path }}"
+        provider: selfsigned
+ 
+    - name: "Generate Etcd Hosts Private Keys"
+      community.crypto.openssl_privatekey:
+        path: "{{ ssl.etcd_dir }}/{{ item }}.pem"
+      loop: "{{ groups['etcd'] }}"
+
+    - name: "Generate Etcd Hosts Certificate Signing Requests"
+      community.crypto.openssl_csr:
+        path: "{{ ssl.etcd_dir }}/{{ item }}.csr"
+        privatekey_path: "{{ ssl.etcd_dir }}/{{ item }}.pem"
+        country_name: "{{ ssl.subject.country_name }}"
+        state_or_province_name: "{{ ssl.subject.state_or_province_name }}"
+        locality_name: "{{ ssl.subject.locality_name }}"
+        organization_name: "{{ ssl.subject.organization_name }}"
+        organizational_unit_name: "{{ ssl.subject.organizational_unit_name }}"
+        common_name: "{{ item }}"
+        key_usage:
+          - digitalSignature
+        extended_key_usage:
+          - serverAuth
+          - clientAuth
+        subject_alt_name:
+          - DNS:{{ item }}
+          - IP:{{ hostvars[item]['ansible_host'] }}
+          - IP:127.0.0.1
+      loop: "{{ groups['etcd'] }}"
+ 
+    - name: "Generate Etcd Hosts X509 Certificates"
+      community.crypto.x509_certificate:
+        path: "{{ ssl.etcd_dir }}/{{ item }}.crt"
+        privatekey_path: "{{ ssl.etcd_dir }}/{{ item }}.pem"
+        csr_path: "{{ ssl.etcd_dir }}/{{ item }}.csr"
+        ownca_path: "{{ ssl.ca.cert_path }}"
+        ownca_privatekey_path: "{{ ssl.ca.privatekey_path }}"
+        provider: ownca
+      loop: "{{ groups['etcd'] }}"
+
+    - name: "Generate Patroni Hosts Private Keys"
+      community.crypto.openssl_privatekey:
+        path: "{{ ssl.patroni_dir }}/{{ item }}.pem"
+      loop: "{{ groups['patroni'] }}"
+
+    - name: "Generate Patroni Hosts Certificate Signing Requests"
+      community.crypto.openssl_csr:
+        path: "{{ ssl.patroni_dir }}/{{ item }}.csr"
+        privatekey_path: "{{ ssl.patroni_dir }}/{{ item }}.pem"
+        country_name: "{{ ssl.subject.country_name }}"
+        state_or_province_name: "{{ ssl.subject.state_or_province_name }}"
+        locality_name: "{{ ssl.subject.locality_name }}"
+        organization_name: "{{ ssl.subject.organization_name }}"
+        organizational_unit_name: "{{ ssl.subject.organizational_unit_name }}"
+        common_name: "{{ item }}"
+        key_usage:
+          - digitalSignature
+        extended_key_usage:
+          - serverAuth
+          - clientAuth
+        subject_alt_name:
+          - DNS:{{ item }}
+          - IP:{{ hostvars[item]['ansible_host'] }}
+          - IP:127.0.0.1
+      loop: "{{ groups['patroni'] }}"
+ 
+    - name: "Generate Patroni Hosts X509 Certificates"
+      community.crypto.x509_certificate:
+        path: "{{ ssl.patroni_dir }}/{{ item }}.crt"
+        privatekey_path: "{{ ssl.patroni_dir }}/{{ item }}.pem"
+        csr_path: "{{ ssl.patroni_dir }}/{{ item }}.csr"
+        ownca_path: "{{ ssl.ca.cert_path }}"
+        ownca_privatekey_path: "{{ ssl.ca.privatekey_path }}"
+        provider: ownca
+      loop: "{{ groups['patroni'] }}"
+
+- name: "Installing And Creating Etcd Cluster"
+  tags:
+    - etcd_setup_play
+  hosts: etcd
+  gather_facts: true
+  vars_files:
+    - "{{ playbook_dir }}/playconf.yml"
+
+  tasks:
+    - name: "Debug Print OS Family"
+      tags:
+        - os_family_debug
+      ansible.builtin.debug:
+        msg: OS Family is {{ ansible_facts['os_family'] }}
+
+    - name: "Updating Repositories If Distro Is RHEL-like"
+      ansible.builtin.dnf:
+        state: latest
+        update_cache: true
+      when: ansible_facts['os_family'] == "RedHat"
+
+    - name: "Updating Repositories If Distro Is Debian-like"
+      ansible.builtin.apt:
+        state: latest
+        update_cache: true
+      when: ansible_facts['os_family'] == "Debian" or
+            ansible_facts['os_family'] == "Astra Linux"
+
+    - name: "Getting File Info"
+      ansible.builtin.stat:
+        path: /tmp/etcd-v3.5.21-linux-amd64.tar.gz
+      register: file_info
+
+    - name: "Getting Directory Info"
+      tags:
+        - create_etcd_dir
+      ansible.builtin.stat:
+        path: "{{ item }}"
+      loop:
+        - /etc/etcd
+        - /var/lib/etcd
+      register: directory_info
+
+    - name: "Ensuring Etcd User Exists"
+      tags:
+        - create_etcd_dir
+      ansible.builtin.user:
+        name: etcd
+        state: present
+
+    - name: "Creating Etcd Data Directory"
+      ansible.builtin.file:
+        path: /var/lib/etcd
+        state: directory
+        owner: etcd
+        group: etcd
+        mode: '0755'
+
+    - name: "Downloading Etcd Binary To The Directory /tmp"
+      ansible.builtin.get_url:
+        url: https://github.com/etcd-io/etcd/releases/download/v3.5.21/etcd-v3.5.21-linux-amd64.tar.gz
+        dest: /tmp/
+        mode: "0750"
+      when: not file_info.stat.exists
+
+
+    - name: "Extracting Etcd Files"
+      ansible.builtin.unarchive:
+        src: /tmp/etcd-v3.5.21-linux-amd64.tar.gz
+        dest: "/tmp/"
+        remote_src: true
+
+    - name: "Copy Binary To /usr/local/bin"
+      ansible.builtin.copy:
+        src: /tmp/etcd-v3.5.21-linux-amd64/{{ item }}
+        dest: /usr/local/bin
+        owner: root
+        group: root
+        mode: "0755"
+        remote_src: true
+      loop:
+        - etcd
+        - etcdctl
+
+    - name: "Creating Config Dir for Etcd"
+      tags:
+        - create_etcd_dir
+      ansible.builtin.file:
+        path: /etc/etcd
+        owner: etcd
+        group: etcd
+        mode: "0755"
+        state: directory
+
+    - name: "Generating Etcd.yaml In Directory /etc/etcd"
+      tags:
+        - gen_etcd_yml
+      ansible.builtin.template:
+        src: '{{ global.templates_dir }}/etcd.jinja'
+        dest: /etc/etcd/etcd.yaml
+        owner: etcd
+        group: etcd
+        mode: "0644"
+      vars:
+        peer_urls_port: '2380'
+        client_urls_port: '2379'
+ 
+    - name: "Creating SSL Dir for Etcd"
+      tags:
+        - create_etcd_dir
+      ansible.builtin.file:
+        path: /etc/etcd/ssl
+        owner: etcd
+        group: etcd
+        mode: "0740"
+        state: directory
+      when: global.enable_ssl
+
+    - name: "Copy SSL Certs to Hosts Etcd"
+      ansible.builtin.copy:
+        src: "{{ item }}"
+        dest: /etc/etcd/ssl
+        owner: etcd
+        group: etcd
+        mode: "0600"
+      loop:
+        - "{{ ssl.etcd_dir }}/{{ ansible_hostname }}.crt"
+        - "{{ ssl.etcd_dir }}/{{ ansible_hostname }}.pem"
+        - "{{ ssl.ca.cert_path }}"
+      when: global.enable_ssl
+
+    - name: "Generating Systemd File For Etcd.service"
+      ansible.builtin.template:
+        src: '{{ global.templates_dir }}/systemd_etcd.jinja'
+        dest: /usr/lib/systemd/system/etcd.service
+        mode: "0644"
+        owner: root
+        group: root
+
+    - name: "Daemon Reload"
+      ansible.builtin.systemd:
+        daemon_reload: true
+
+    - name: "Starting Etcd Cluster"
+      ansible.builtin.systemd:
+        name: etcd.service
+        state: restarted
+
+- name: "Patroni Management"
+  tags:
+    - patroni_setup
+  hosts: patroni
+  vars_files:
+    - "{{ playbook_dir }}/playconf.yml"
+
+  tasks:
+    - name: "Installing Patroni On RHEL-like Distro"
+      ansible.builtin.dnf:
+        name:
+          - patroni
+          - python3-etcd
+          - postgresql-server
+        state: latest
+      when: ansible_facts['os_family'] == "RedHat"
+
+    - name: "Installing Patroni On Debian-like Distro"
+      ansible.builtin.apt:
+        name:
+          - patroni
+          - python3-etcd
+          - postgresql
+        state: latest
+      when: ansible_facts['os_family'] == "Debian" or
+            ansible_facts['os_family'] == "Astra Linux"
+
+    - name: "Disabling Default PostgreSQL Service"
+      ansible.builtin.systemd:
+        name: postgresql
+        enabled: false
+        state: stopped
+            
+    - name: "Getting pg_ctl Directory"
+      tags:
+        - patroni_template
+      ansible.builtin.command: "find / -name pg_ctl -printf '%h\\n'"
+      register: pg_ctl
+      changed_when: false
+      ignore_errors: true
+      failed_when: pg_ctl.rc != 1
+
+    - name: "Printing pg_ctl"
+      ansible.builtin.debug:
+        msg: '{{ pg_ctl.stdout_lines }}'
+
+
+    - name: "Creating Log Direcroty For Patroni"
+      ansible.builtin.file:
+        path: /var/log/patroni
+        state: directory
+        owner: postgres
+        group: postgres
+        mode: "0700"
+
+    - name: "Create Database Directory And Giving Privileges"
+      ansible.builtin.file:
+        path: /data/pg_data
+        state: directory
+        owner: postgres
+        group: postgres
+        mode: '0700'
+
+    - name: "Creating pgsql Directory"
+      ansible.builtin.file:
+        path: /var/lib/pgsql
+        state: directory
+        owner: postgres
+        group: postgres
+        mode: '0700'
+
+    - name: "Checking For Patroni Jinja File"
+      tags:
+        - patroni_template
+      ansible.builtin.template:
+        src: '{{ global.templates_dir }}/patroni_yaml.jinja'
+        dest: /etc/patroni/patroni.yml
+        mode: "0744"
+      vars:
+        pg_data_dir: /data/pg_data
+        pg_bin_files: '{{ pg_ctl.stdout_lines[0] }}'
+
+    - name: "Patroni Service Setting"
+      ansible.builtin.template:
+        src: '{{ global.templates_dir }}/patroni_service.jinja'
+        dest: '/etc/systemd/system/patroni.service'
+        mode: '0644'
+        owner: root
+        group: root
+ 
+    - name: "Daemon Reload"
+      ansible.builtin.systemd:
+        daemon_reload: true
+
+    - name: "Starting Patroni Service"
+      ansible.builtin.systemd:
+        name: patroni.service
+        state: restarted
+        enabled: true
+

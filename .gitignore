@@ -8,3 +8,5 @@ lib64
 ansible.cfg
 inventory.ini
 *.cfg
+
+ssl/
