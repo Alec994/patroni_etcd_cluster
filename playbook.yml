@@ -123,6 +123,7 @@
   tags:
     - etcd_setup_play
   hosts: etcd
+  become: true
   gather_facts: true
   vars_files:
     - "{{ playbook_dir }}/playconf.yml"
@@ -281,6 +282,7 @@
   tags:
     - patroni_setup
   hosts: patroni
+  become: true
   gather_facts: true
   vars_files:
     - "{{ playbook_dir }}/playconf.yml"
