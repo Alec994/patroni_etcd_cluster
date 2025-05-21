@@ -7,9 +7,15 @@ restapi:
 
 etcd:
   hosts:
-  {% for host in groups['etcd'] %}
-  - {{ host }}:2379
-  {% endfor %}
+{% for host in groups['etcd'] %}
+    - {{ host }}:2379
+{% endfor %}
+{% if global.enable_ssl %}
+  protocol: https
+  cacert: /etc/patroni/ssl/{{ ssl_ca_base_filename }}.crt
+  cert: /etc/patroni/ssl/{{ ansible_hostname }}.crt
+  key: /etc/patroni/ssl/{{ ansible_hostname }}.pem
+{% endif %}
 
 bootstrap:
   dcs:
@@ -32,13 +38,13 @@ bootstrap:
   pg_hba:
     - local all all scram-sha-256
     - host all all 127.0.0.1/32 scram-sha-256
-    {% for host in groups['patroni'] -%}
-    {% if hostvars[host]['ansible_host'] ==  ansible_facts['default_ipv4']['address'] -%}
+{% for host in groups['patroni'] %}
+{% if hostvars[host]['ansible_host'] == ansible_host %}
     - host replication repl {{ hostvars[host]['ansible_host'] }}/32 reject
-    {% else -%}
+{% else %}
     - host replication repl {{ hostvars[host]['ansible_host'] }}/32 scram-sha-256
-    {% endif %}
-    {%- endfor %}
+{% endif %}
+{% endfor %}
 
   users:
     admin:

@@ -6,9 +6,9 @@
 name: {{ ansible_hostname }}
 data-dir: /var/lib/etcd/{{ ansible_hostname }}
 listen-peer-urls: {{ proto }}://{{ ansible_host }}:{{ peer_urls_port }}
-listen-client-urls: {{ proto }}://0.0.0.0:{{ client_urls_port }}
+listen-client-urls: {{ proto }}://{{ ansible_host }}:{{ client_urls_port }},{{ proto }}://127.0.0.1:{{ client_urls_port }}
 initial-advertise-peer-urls: {{ proto }}://{{ ansible_host }}:{{ peer_urls_port }}
-advertise-client-urls: {{ proto }}://0.0.0.0:{{ client_urls_port }}
+advertise-client-urls: {{ proto }}://{{ ansible_hostname }}:{{ client_urls_port }}
 initial-cluster: {% for host in groups['etcd'] -%} {{ host }}={{ proto }}://{{ hostvars[host]['ansible_host'] }}:{{ peer_urls_port }}{% if not loop.last %},{% endif %}{%- endfor %}
 
 initial-cluster-state: new

@@ -272,6 +272,7 @@
   tags:
     - patroni_setup
   hosts: patroni
+  gather_facts: true
   vars_files:
     - "{{ playbook_dir }}/playconf.yml"
 
@@ -339,6 +340,36 @@
         owner: postgres
         group: postgres
         mode: '0700'
+
+    - name: "Setup Config Dir For Patroni"
+      ansible.builtin.file:
+        path: /etc/patroni
+        state: directory
+        owner: postgres
+        group: postgres
+        mode: "0740"
+
+    - name: "Setup SSL Config Dir For Patroni"
+      ansible.builtin.file:
+        path: /etc/patroni/ssl
+        state: directory
+        owner: postgres
+        group: postgres
+        mode: "0700"
+      when: global.enable_ssl
+
+    - name: "Copy SSL Certs to Patroni Hosts"
+      ansible.builtin.copy:
+        src: "{{ item }}"
+        dest: /etc/patroni/ssl
+        owner: postgres
+        group: postgres
+        mode: "0600"
+      loop:
+        - "{{ ssl.patroni_dir }}/{{ ansible_hostname }}.crt"
+        - "{{ ssl.patroni_dir }}/{{ ansible_hostname }}.pem"
+        - "{{ ssl.ca.cert_path }}"
+      when: global.enable_ssl
 
     - name: "Checking For Patroni Jinja File"
       tags:
