@@ -227,7 +227,7 @@
       tags:
         - gen_etcd_yml
       ansible.builtin.template:
-        src: '{{ global.templates_dir }}/etcd.jinja'
+        src: '{{ global.templates_dir }}/etcd.yml.jinja'
         dest: /etc/etcd/etcd.yaml
         owner: etcd
         group: etcd
@@ -262,7 +262,7 @@
 
     - name: "Generating Systemd File For Etcd.service"
       ansible.builtin.template:
-        src: '{{ global.templates_dir }}/systemd_etcd.jinja'
+        src: '{{ global.templates_dir }}/etcd.service.jinja'
         dest: /usr/lib/systemd/system/etcd.service
         mode: "0644"
         owner: root
@@ -391,7 +391,7 @@
       tags:
         - patroni_template
       ansible.builtin.template:
-        src: '{{ global.templates_dir }}/patroni_yaml.jinja'
+        src: '{{ global.templates_dir }}/patroni.yml.jinja'
         dest: /etc/patroni/patroni.yml
         mode: "0744"
       vars:
@@ -400,7 +400,7 @@
 
     - name: "Patroni Service Setting"
       ansible.builtin.template:
-        src: '{{ global.templates_dir }}/patroni_service.jinja'
+        src: '{{ global.templates_dir }}/patroni.service.jinja'
         dest: '/etc/systemd/system/patroni.service'
         mode: '0644'
         owner: root
