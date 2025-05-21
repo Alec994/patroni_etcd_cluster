@@ -169,6 +169,15 @@
       ansible.builtin.user:
         name: etcd
         state: present
+ 
+    - name: "Generate Etcd Environment Config From Template"
+      ansible.builtin.template:
+        src: "{{ global.templates_dir }}/etcd-env.sh.jinja"
+        dest: /etc/profile.d/etcd-env.sh
+        owner: root
+        group: root
+        mode: "0644"
+
 
     - name: "Creating Etcd Data Directory"
       ansible.builtin.file:
@@ -316,6 +325,13 @@
       ansible.builtin.debug:
         msg: '{{ pg_ctl.stdout_lines }}'
 
+    - name: "Generate Patroni Environment Config From Template"
+      ansible.builtin.template:
+        src: "{{ global.templates_dir }}/patroni-env.sh.jinja"
+        dest: /etc/profile.d/patroni-env.sh
+        owner: root
+        group: root
+        mode: "0644"
 
     - name: "Creating Log Direcroty For Patroni"
       ansible.builtin.file:

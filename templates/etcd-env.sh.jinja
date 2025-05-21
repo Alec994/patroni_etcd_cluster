@@ -1,0 +1,10 @@
+{%- if global.enable_ssl   -%}
+{%-   set proto = 'https'  -%}
+{%- else  -%}
+{%-   set proto = 'http'   -%}
+{%- endif -%}
+export ETCDCTL_CACERT="/etc/etcd/ssl/{{ ssl_ca_base_filename }}.crt"
+export ETCDCTL_CERT="/etc/etcd/ssl/$HOSTNAME.crt"
+export ETCDCTL_KEY="/etc/etcd/ssl/$HOSTNAME.pem"
+export ETCDCTL_ENDPOINTS="{% for host in groups['etcd'] %}{{ proto }}://{{ host }}:2379{{ "," if not loop.last else "" }}{% endfor %}"
+

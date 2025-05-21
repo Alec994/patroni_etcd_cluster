@@ -1,0 +1,9 @@
+#export PATH="$PATH:/opt/pgpro/std-14/bin"
+#export PGDATA="/var/lib/pgpro/std-14/data"
+
+export PATRONI_SCOPE="cluster_db"
+export PATRONICTL_CONFIG_FILE="/etc/patroni/patroni.yml"
+export PATRONI_CTL_CACERT="/etc/patroni/ssl/{{ ssl_ca_base_filename }}.crt"
+export PATRONI_CTL_CERTFILE="/etc/patroni/ssl/$HOSTNAME.crt"
+export PATRONI_CTL_KEYFILE="/etc/patroni/ssl/$HOSTNAME.pem"
+
