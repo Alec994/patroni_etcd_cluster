@@ -1,0 +1,25 @@
+{% set total_mem = ansible_memtotal_mb|int %}
+{% set shared_buffers = (total_mem * 0.3)|round|int %}
+{% set max_connections = [postgresql.perfomance.max_connections|int, 1]|max %}
+{% set work_mem = (total_mem - shared_buffers) / (max_connections * 2) %}
+{% set cpus = ansible_processor_count|int * ansible_processor_cores|int * ansible_processor_threads_per_core|int %}
+max_connections: {{ max_connections }}
+shared_buffers: {{ shared_buffers }}MB
+effective_cache_size: {{ ((total_mem - shared_buffers) * 0.7)|round|int }}MB
+maintenance_work_mem: {{ [(total_mem * 0.1)|round, 1024]|min|int }}MB
+checkpoint_completion_target: 0.9
+wal_buffers: {{ [16, (shared_buffers * 0.01)|round]|max|int }}MB
+default_statistics_target: {{ postgresql.perfomance.default_statistics_target }}
+random_page_cost: {{ 1.1 if fsroot_is_ssd|bool else 4 }}
+effective_io_concurrency: {{ 200 if fsroot_is_ssd|bool else 2 }}
+work_mem: {{ work_mem|round|int }}MB
+huge_pages: {{ 'try' if (total_mem / 1024)|round|int > 32 else 'off' }}
+min_wal_size: {{ postgresql.perfomance.min_wal_size_gb }}GB
+max_wal_size: {{ postgresql.perfomance.max_wal_size_gb }}GB
+{% if cpus >= 4 %}
+max_worker_processes: {{ cpus }}
+max_parallel_workers_per_gather: {{ cpus / 2 }}
+max_parallel_workers: {{ cpus }}
+max_parallel_maintenance_workers: {{ [cpus / 2, 4]|min }}
+{% endif %}
+

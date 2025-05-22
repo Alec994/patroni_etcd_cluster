@@ -2,6 +2,13 @@ global:
   enable_ssl: true
   templates_dir: "{{ playbook_dir }}/templates"
 
+postgresql:
+  perfomance:
+    max_connections: 100
+    min_wal_size_gb: 4
+    max_wal_size_gb: 16
+    default_statistics_target: 100
+
 # Kept separate because recursive referencing is not supported
 ssl_root_dir: "{{ playbook_dir }}/ssl"
 ssl_ca_base_filename: "HAClusterCA"

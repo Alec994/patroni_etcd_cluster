@@ -314,6 +314,11 @@
         enabled: false
         state: stopped
 
+    - name: Determine if / is on HDD or SSD
+      ansible.builtin.shell:
+        cmd: lsblk $(df --output=source,target | egrep '/$' | awk '{print $1}') -rno ROTA
+      register: fsroot_is_ssd
+
     - name: "Getting pg_ctl Directory"
       tags:
         - patroni_template
