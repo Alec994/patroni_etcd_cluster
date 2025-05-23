@@ -1,4 +1,5 @@
 {%- macro perf_params() -%}{%- include 'postgresql/perfomance.jinja' -%}{% endmacro %}
+{%- macro logging_params() -%}{%- include 'postgresql/logging.jinja' -%}{% endmacro %}
 scope: cluster_db
 name: {{ ansible_hostname }}
 
@@ -30,6 +31,7 @@ bootstrap:
       use_pg_rewind: true
       use_slots: true
       parameters:
+        {{ logging_params()|indent(8) }}
         {{ perf_params()|indent(8) }}
 
   initdb:
@@ -78,6 +80,7 @@ postgresql:
       username: rewind_user
       password: P@ssw0rd
   parameters:
+    {{ logging_params()|indent(4) }}
     {{ perf_params()|indent(4) }}
 log:
   level: ERROR

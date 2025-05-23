@@ -22,4 +22,3 @@ max_parallel_workers_per_gather: {{ cpus / 2 }}
 max_parallel_workers: {{ cpus }}
 max_parallel_maintenance_workers: {{ [cpus / 2, 4]|min }}
 {% endif %}
-

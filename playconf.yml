@@ -8,6 +8,11 @@ postgresql:
     min_wal_size_gb: 4
     max_wal_size_gb: 16
     default_statistics_target: 100
+  logging:
+    timezone: Europe/Moscow
+    lc_messages: en_US.UTF-8
+    filename: postgresql-%Y-%m-%d.log
+    line_prefix: '%m [%p]: [%l-1] %d,%u,%a,%h '
 
 # Kept separate because recursive referencing is not supported
 ssl_root_dir: "{{ playbook_dir }}/ssl"
