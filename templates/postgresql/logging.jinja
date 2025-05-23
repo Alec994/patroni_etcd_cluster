@@ -1,10 +1,10 @@
 lc_messages: {{ postgresql.logging.lc_messages }}
 log_destination: stderr
 logging_collector: on
-log_line_prefix: {{ postgresql.logging.line_prefix }}
+log_line_prefix: '{{ postgresql.logging.line_prefix }}'
 log_directory: log
 log_timezone: {{ postgresql.logging.timezone }}
-log_filename: {{ postgresql.logging.filename }}
+log_filename: '{{ postgresql.logging.filename }}'
 log_rotation_age: 1d
 log_connections: on
 log_disconnections: on
