@@ -340,7 +340,7 @@
         group: root
         mode: "0644"
 
-    - name: "Creating Log Direcroty For Patroni"
+    - name: "Creating Log Directory For Patroni"
       ansible.builtin.file:
         path: /var/log/patroni
         state: directory
